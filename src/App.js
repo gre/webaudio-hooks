@@ -120,6 +120,12 @@ const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
       <Output id="echo">
         <Gain gain={mainGain}>
           <Input id="guitar" />
+          <Gain gain={0.04}>
+            <Input id="fm1" />
+          </Gain>
+          <Gain gain={0.1}>
+            <Input id="wobwob" />
+          </Gain>
           <Delay delayTime={delayTime}>
             <Input id="echo" />
           </Delay>
