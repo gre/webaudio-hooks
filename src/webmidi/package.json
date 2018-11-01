@@ -1,0 +1,14 @@
+{
+  "name": "use-webmidi",
+  "version": "0.0.0",
+  "description": "Use MIDI with React Hooks",
+  "main": "lib/index.js",
+  "keywords": [
+    "react",
+    "hooks",
+    "use",
+    "midi"
+  ],
+  "author": "Gaëtan Renaudeau",
+  "license": "ISC"
+}

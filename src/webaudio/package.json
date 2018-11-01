@@ -1,0 +1,14 @@
+{
+  "name": "use-webaudio",
+  "version": "0.0.0",
+  "description": "Use Web Audio with React Hooks",
+  "main": "lib/index.js",
+  "author": "Gaëtan Renaudeau",
+  "license": "ISC",
+  "keywords": [
+    "react",
+    "hooks",
+    "use",
+    "webaudio"
+  ]
+}
