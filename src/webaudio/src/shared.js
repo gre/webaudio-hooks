@@ -3,6 +3,14 @@ import React, { useContext, useEffect, useState } from "react";
 export const WebAudioContext = React.createContext(null);
 export const OutputContext = React.createContext(null);
 
+export const useWebAudio = () => useContext(WebAudioContext);
+
+export const useOutput = () => useContext(OutputContext);
+
+export const provideOutput = (output, children) => (
+  <OutputContext.Provider value={output}>{children}</OutputContext.Provider>
+);
+
 export const useConnectToOutput = node => {
   const output = useContext(OutputContext);
   useEffect(

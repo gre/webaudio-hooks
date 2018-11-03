@@ -1,0 +1,11 @@
+{
+  "name": "use-music",
+  "version": "0.0.0",
+  "description": "use music with React hooks, helpers on top of use-webaudio and use-webmidi",
+  "main": "lib/index.js",
+  "author": "Gaëtan Renaudeau",
+  "license": "MIT",
+  "dependencies": {
+    "adsr-envelope": "^1.0.0"
+  }
+}

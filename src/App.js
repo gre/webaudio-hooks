@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "./App.css";
 import {
   Analyser,
@@ -23,6 +23,7 @@ import {
   useMIDIControlEffect,
   useMIDINoteEffect
 } from "./webmidi/src";
+import { NOTES, ADSR, EntityFactory } from "./music/src";
 
 function makeDistortionCurve(amount) {
   var k = typeof amount === "number" ? amount : 50,
@@ -90,11 +91,87 @@ const Visualize = ({ analyserNode, interval }) => {
   );
 };
 
+/*
+TODO
+
+<Sequencer ??? />
+
+<MonoSynth ??? />
+
+
+<SequenceAudioParam
+  name=""
+  sequence={[
+  ]}
+  onDone={() => {   }}
+/>
+
+<AudioParamInterpolateValue
+  name=""
+  value={...}
+  interpolation={{ ... }}
+/>
+
+*/
+
+const Note = ({ offPromise, destroy, children }) => {
+  const [pressed, setPressed] = useState(true);
+
+  useEffect(() => {
+    if (!offPromise) return;
+    let cancelled;
+    offPromise.then(() => {
+      if (cancelled) return;
+      setPressed(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <ADSR pressed={pressed} onEnd={destroy}>
+      {children}
+    </ADSR>
+  );
+};
+
 const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
   const acousticGuitar = useAudioBufferURL("samples/acoustic_guitar.m4a");
 
+  const piano = useRef(null);
+
+  useMIDINoteEffect((note, velocity, noteOffPromise) => {
+    if (!piano.current) return;
+    return piano.current.create({ note, velocity, noteOffPromise });
+  });
+
   return (
     <>
+      <Output id="piano">
+        <EntityFactory ref={piano}>
+          {({ velocity, note, noteOffPromise }, destroy) => {
+            const frequency = NOTES[note];
+            return (
+              <Gain gain={velocity}>
+                <Note offPromise={noteOffPromise} destroy={destroy}>
+                  <Oscillator type="sine" frequency={frequency}>
+                    <AudioParam name="frequency">
+                      <Gain gain={frequency}>
+                        <Oscillator type="sine" frequency={frequency * 2.01} />
+                      </Gain>
+                      <Gain gain={frequency * 0.6}>
+                        <Oscillator type="sine" frequency={frequency * 0.501} />
+                      </Gain>
+                    </AudioParam>
+                  </Oscillator>
+                </Note>
+              </Gain>
+            );
+          }}
+        </EntityFactory>
+      </Output>
+
       <Destination>
         <DynamicsCompressor>
           <Input id="main" />
@@ -106,7 +183,7 @@ const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
       </Analyser>
 
       <Output id="main">
-        <Input id="echo" />
+        <Input id="piano" />
       </Output>
 
       <Output id="distortion">
@@ -119,7 +196,10 @@ const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
 
       <Output id="echo">
         <Gain gain={mainGain}>
-          <Input id="guitar" />
+          <Input id="piano" />
+          <Gain gain={0.2}>
+            <Input id="guitar" />
+          </Gain>
           <Gain gain={0.04}>
             <Input id="fm1" />
           </Gain>
