@@ -6,7 +6,7 @@ import {
   useConnectToOutput
 } from "../../webaudio/src";
 
-const OFFSET_END = 0.1;
+const OFFSET_END = 0.5;
 
 export const ADSR = ({ params, pressed, onEnd, children }) => {
   const context = useWebAudio();

@@ -112,15 +112,19 @@ TODO
   interpolation={{ ... }}
 />
 
+- AudioNodeRegistryProvider => bad idea. you can't write component because it would not make them accessing the outer scope variables :(
+- better sliders
+- ui to assign controls to sliders
+- virtual keyboard
+
 */
 
-const Note = ({ offPromise, destroy, children }) => {
+const useNotePressed = noteOffPromise => {
   const [pressed, setPressed] = useState(true);
-
   useEffect(() => {
-    if (!offPromise) return;
+    if (!noteOffPromise) return;
     let cancelled;
-    offPromise.then(() => {
+    noteOffPromise.then(() => {
       if (cancelled) return;
       setPressed(false);
     });
@@ -129,61 +133,97 @@ const Note = ({ offPromise, destroy, children }) => {
     };
   }, []);
 
+  return pressed;
+};
+
+const NoteADSR = ({ noteOffPromise, params, destroy, children }) => {
+  const pressed = useNotePressed(noteOffPromise);
   return (
-    <ADSR pressed={pressed} onEnd={destroy}>
+    <ADSR pressed={pressed} params={params} onEnd={destroy}>
       {children}
     </ADSR>
   );
 };
 
-const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
-  const acousticGuitar = useAudioBufferURL("samples/acoustic_guitar.m4a");
-
+const NoteFactory = ({ children }) => {
   const piano = useRef(null);
-
   useMIDINoteEffect((note, velocity, noteOffPromise) => {
     if (!piano.current) return;
     return piano.current.create({ note, velocity, noteOffPromise });
   });
+  return <EntityFactory ref={piano}>{children}</EntityFactory>;
+};
+
+const Echo = ({ children, factor, delayTime }) => (
+  <>
+    <Output id="echo">
+      {children}
+      <Gain gain={factor}>
+        <Delay delayTime={delayTime}>
+          <Input id="echo" />
+        </Delay>
+      </Gain>
+    </Output>
+    <Input id="echo" />
+  </>
+);
+
+const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
+  const acousticGuitar = useAudioBufferURL("samples/acoustic_guitar.m4a");
 
   return (
     <>
-      <Output id="piano">
-        <EntityFactory ref={piano}>
-          {({ velocity, note, noteOffPromise }, destroy) => {
-            const frequency = NOTES[note];
-            return (
-              <Gain gain={velocity}>
-                <Note offPromise={noteOffPromise} destroy={destroy}>
-                  <Oscillator type="sine" frequency={frequency}>
-                    <AudioParam name="frequency">
-                      <Gain gain={frequency}>
-                        <Oscillator type="sine" frequency={frequency * 2.01} />
-                      </Gain>
-                      <Gain gain={frequency * 0.6}>
-                        <Oscillator type="sine" frequency={frequency * 0.501} />
-                      </Gain>
-                    </AudioParam>
-                  </Oscillator>
-                </Note>
-              </Gain>
-            );
-          }}
-        </EntityFactory>
-      </Output>
-
       <Destination>
-        <DynamicsCompressor>
-          <Input id="main" />
-        </DynamicsCompressor>
+        <Input id="main" />
       </Destination>
+
+      <Output id="main">
+        <DynamicsCompressor>
+          <Echo factor={mainGain} delayTime={delayTime}>
+            <Input id="piano" />
+          </Echo>
+        </DynamicsCompressor>
+      </Output>
 
       <Analyser fftSize={256} onAnalyserNode={onAnalyserNode}>
         <Input id="main" />
       </Analyser>
 
-      <Output id="main">
-        <Input id="piano" />
+      <Output id="piano">
+        <NoteFactory>
+          {({ velocity, note, noteOffPromise }, destroy) => {
+            const frequency = NOTES[note];
+            return (
+              <Gain gain={velocity}>
+                <NoteADSR
+                  params={{
+                    attackTime: 0.05,
+                    decayTime: 0.4,
+                    releaseTime: 0.5
+                  }}
+                  noteOffPromise={noteOffPromise}
+                  destroy={destroy}
+                >
+                  <Oscillator type="triangle" frequency={frequency}>
+                    <AudioParam name="frequency">
+                      <NoteADSR
+                        params={{
+                          attackTime: 0.2,
+                          releaseTime: 0.1
+                        }}
+                        noteOffPromise={noteOffPromise}
+                      >
+                        <Gain gain={frequency}>
+                          <Oscillator type="sine" frequency={frequency * 1.5} />
+                        </Gain>
+                      </NoteADSR>
+                    </AudioParam>
+                  </Oscillator>
+                </NoteADSR>
+              </Gain>
+            );
+          }}
+        </NoteFactory>
       </Output>
 
       <Output id="distortion">
@@ -192,24 +232,6 @@ const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
             <Input id="guitar" />
           </Distortion>
         </BiquadFilter>
-      </Output>
-
-      <Output id="echo">
-        <Gain gain={mainGain}>
-          <Input id="piano" />
-          <Gain gain={0.2}>
-            <Input id="guitar" />
-          </Gain>
-          <Gain gain={0.04}>
-            <Input id="fm1" />
-          </Gain>
-          <Gain gain={0.1}>
-            <Input id="wobwob" />
-          </Gain>
-          <Delay delayTime={delayTime}>
-            <Input id="echo" />
-          </Delay>
-        </Gain>
       </Output>
 
       <Output id="guitar_audio">
@@ -263,27 +285,23 @@ const AudioDemo = ({ mainGain, delayTime, frequency, onAnalyserNode }) => {
 };
 
 const App = () => {
-  const [delayTime, setDelayTime] = useState(0.4);
-  const [mainGain, setMainGain] = useState(0.1);
+  const [mainGain, setMainGain] = useState(0.4);
+  const [delayTime, setDelayTime] = useState(0.5);
   const [frequency, setFrequency] = useState(1);
   const [analyserNode, setAnalyserNode] = useState(null);
   useMIDIControlEffect((value, eventId) => {
     switch (eventId % 3) {
       case 0:
-        setDelayTime(0.1 * value);
+        setDelayTime(value);
         break;
       case 1:
         setMainGain(value);
         break;
       case 2:
-        setFrequency(2 * value);
+        setFrequency(value);
         break;
       default:
     }
-  });
-
-  useMIDINoteEffect(note => {
-    console.log("note", note);
   });
 
   return (
@@ -314,7 +332,7 @@ const App = () => {
         <input
           type="range"
           min={0}
-          max={2}
+          max={1}
           step={0.01}
           value={frequency}
           onChange={e => {
@@ -325,7 +343,7 @@ const App = () => {
         <input
           type="range"
           min={0.00001}
-          max={0.1}
+          max={1}
           step={0.00001}
           value={delayTime}
           onChange={e => {

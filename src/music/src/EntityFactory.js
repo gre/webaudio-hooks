@@ -20,33 +20,34 @@ const factoryReducer = (entities, action) => {
 };
 
 // using memo, entity rendering is intentionally cached during the full entity lifecycle.
-const EntityRender = React.memo(({ id, entity, render, dispatch }) =>
-  render(entity, () => dispatch({ type: "remove", id }))
-);
 
-export const EntityFactory = React.forwardRef(
-  ({ children, initialEntities }, ref) => {
-    const [entities, dispatch] = useReducer(
-      factoryReducer,
-      initialFactoryState
-    );
-    useEffect(() => {
-      ref.current = {
-        create: entity => {
-          const id = getId();
-          dispatch({ type: "add", id, entity });
-          return () => dispatch({ type: "remove", id });
-        }
-      };
-    }, []);
-    return Object.keys(entities).map(id => (
-      <EntityRender
-        key={id}
-        id={id}
-        entity={entities[id]}
-        render={children}
-        dispatch={dispatch}
-      />
-    ));
-  }
-);
+function Entity({ id, entity, render, dispatch }) {
+  return render(entity, () => dispatch({ type: "remove", id }));
+}
+
+const EntityRender = React.memo(Entity);
+
+export const EntityFactory = React.forwardRef(function EntityFactory(
+  { children, initialEntities },
+  ref
+) {
+  const [entities, dispatch] = useReducer(factoryReducer, initialFactoryState);
+  useEffect(() => {
+    ref.current = {
+      create: entity => {
+        const id = getId();
+        dispatch({ type: "add", id, entity });
+        return () => dispatch({ type: "remove", id });
+      }
+    };
+  }, []);
+  return Object.keys(entities).map(id => (
+    <EntityRender
+      key={id}
+      id={id}
+      entity={entities[id]}
+      render={children}
+      dispatch={dispatch}
+    />
+  ));
+});
